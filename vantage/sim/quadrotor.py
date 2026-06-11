@@ -106,7 +106,7 @@ class Quadrotor:
         return ds
 
     def step(self, thrust: float, torque) -> np.ndarray:
-        """Advance one dt with explicit (forward) Euler. Returns new state."""
+        """Advance one dt with RK4. Returns new state."""
         torque = np.asarray(torque, dtype=float)
         thrust = float(np.clip(thrust, 0.0, self.max_thrust))
 
@@ -116,6 +116,11 @@ class Quadrotor:
             self._thrust_act += alpha * (thrust - self._thrust_act)
             thrust = self._thrust_act
 
-        ds = self._deriv(self.state, thrust, torque)
-        self.state = self.state + self.dt * ds
+        dt = self.dt
+        s = self.state
+        k1 = self._deriv(s, thrust, torque)
+        k2 = self._deriv(s + 0.5 * dt * k1, thrust, torque)
+        k3 = self._deriv(s + 0.5 * dt * k2, thrust, torque)
+        k4 = self._deriv(s + dt * k3, thrust, torque)
+        self.state = s + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
         return self.state.copy()
