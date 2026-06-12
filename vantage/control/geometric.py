@@ -18,10 +18,10 @@ class CascadedController:
         self,
         mass: float = 1.0,
         inertia=(0.0085, 0.0085, 0.0165),
-        kp_pos=(3.5, 3.5, 5.0),
-        kd_pos=(2.5, 2.5, 3.5),
-        kp_att=(90.0, 90.0, 40.0),
-        kd_att=(10.0, 10.0, 8.0),
+        kp_pos=(6.0, 6.0, 8.0),
+        kd_pos=(4.0, 4.0, 5.0),
+        kp_att=(160.0, 160.0, 60.0),
+        kd_att=(24.0, 24.0, 12.0),
         max_tilt: float = np.deg2rad(35.0),
     ):
         self.m = mass
