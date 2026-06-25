@@ -135,7 +135,7 @@ class PPOAgent:
                 use_unclipped = (ratio * a <= clip_ratio * a)
                 eff_ratio = np.where(use_unclipped, ratio, 0.0)
                 # d(-L_clip)/d mean  (maximize surrogate -> minimize negative)
-                coef = -(eff_ratio * a) / (std ** 2)          # (n,act)
+                coef = -((eff_ratio * a)[:, None]) / (std ** 2)[None, :]   # (n,act)
                 d_mean = coef * (r - mean)
                 # entropy bonus pushes log_std up (handled below); mean unaffected
                 self.policy.adam_step(*self.policy.backward(d_mean / len(mb)), lr=self.lr)
