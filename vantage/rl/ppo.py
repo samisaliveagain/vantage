@@ -79,6 +79,7 @@ class PPOAgent:
         self.clip = clip; self.gamma = gamma; self.lam = lam
         self.ent_coef = ent_coef; self.lr = lr
         self.act_dim = act_dim
+        self.rng = np.random.default_rng(seed)
 
     # -------------------------------------------------------------- sampling
     def act(self, obs, deterministic=False):
@@ -86,7 +87,7 @@ class PPOAgent:
         if deterministic:
             return np.tanh(mean), None
         std = np.exp(self.log_std)
-        raw = mean + std * np.random.standard_normal(self.act_dim)
+        raw = mean + std * self.rng.standard_normal(self.act_dim)
         logp = self._logp(mean, raw)
         return np.tanh(raw), (raw, logp)
 
@@ -122,7 +123,7 @@ class PPOAgent:
         n = len(obs)
         idx = np.arange(n)
         for _ in range(epochs):
-            np.random.shuffle(idx)
+            self.rng.shuffle(idx)
             for s in range(0, n, minibatch):
                 mb = idx[s:s + minibatch]
                 o, r, ol, a, rt = obs[mb], raw[mb], old_logp[mb], adv[mb], ret[mb]
