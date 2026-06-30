@@ -1,0 +1,69 @@
+{
+  "mission": "search-inspect-return",
+  "planned_ok": true,
+  "legs": [
+    {
+      "from": [
+        0.5,
+        0.5,
+        1.5
+      ],
+      "to": [
+        9.0,
+        2.0,
+        2.5
+      ],
+      "planned": true,
+      "plan_length": 8.689073598491383
+    },
+    {
+      "from": [
+        9.0,
+        2.0,
+        2.5
+      ],
+      "to": [
+        8.5,
+        9.0,
+        2.0
+      ],
+      "planned": true,
+      "plan_length": 7.121980718841563
+    },
+    {
+      "from": [
+        8.5,
+        9.0,
+        2.0
+      ],
+      "to": [
+        2.0,
+        9.0,
+        3.0
+      ],
+      "planned": true,
+      "plan_length": 6.576473218982953
+    },
+    {
+      "from": [
+        2.0,
+        9.0,
+        3.0
+      ],
+      "to": [
+        0.5,
+        0.5,
+        1.5
+      ],
+      "planned": true,
+      "plan_length": 8.760707733967616
+    }
+  ],
+  "success": true,
+  "collided": false,
+  "min_clearance_m": 0.23477660127378785,
+  "flown_length_m": 31.168227643008027,
+  "plan_length_m": 31.148235270283514,
+  "flight_time_s": 11.859999999999792,
+  "n_waypoints": 5
+}
