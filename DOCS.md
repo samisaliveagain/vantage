@@ -258,13 +258,4 @@ Real 3D sim (PX4+Gazebo): see `realsim/00_RUNBOOK.md`.
 
 ---
 
-## 10. Honest limitations (what is *not* done)
 
-- **PX4 / Gazebo not yet run** — `realsim/` is scaffolding; the headline results use
-  the lightweight sim, not the real firmware.
-- **No real hardware** — sim-only, by design.
-- **No NVIDIA Isaac Sim** — the original plan named it; it was swapped for the
-  lightweight sim (CPU) + optional Gazebo because Isaac needs an 8 GB+ GPU and a
-  30 GB+ install.
-- **Idealized sensing** — no IMU/camera noise, no state estimator (EKF2). Adding a
-  VIO/EKF layer is the natural next step toward realism.
