@@ -10,6 +10,17 @@ A sim-first, modular autonomous drone stack. VANTAGE flies a quadrotor through c
 
 ---
 
+## Two simulators (read this first)
+
+VANTAGE has two ways to "run":
+
+1. **Headless physics sim (this repo's `vantage/` package)** — integrates real
+   quadrotor dynamics in code and outputs **metrics, plots, and a demo GIF** in
+   `results/`. It does not pop open a 3D window; you see the *recording*. This is
+   what produces all the benchmark numbers below and runs in CI.
+2. **3D simulator (`realsim/`)** — PX4 SITL + Gazebo in WSL2, a real-time 3D
+   window where you watch the drone fly. See **[realsim/00_RUNBOOK.md](realsim/00_RUNBOOK.md)**.
+
 ## Results (sim, reproducible)
 
 All numbers below are produced by the scripts in `scripts/` and saved to `results/`
