@@ -6,7 +6,6 @@ __pycache__/
 venv/
 results/*.mp4
 !results/phase4_mission.gif
-results/*.mp4
 *.zip
 .DS_Store
 ~$*
