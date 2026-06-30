@@ -6,9 +6,49 @@ A sim-first, modular autonomous drone stack. VANTAGE flies a quadrotor through c
 
 > One project that spans the three things drone companies hire interns for: **perception**, **state estimation / navigation**, and **planning & control**.
 
-![status](https://img.shields.io/badge/status-in%20progress-blue) ![sim](https://img.shields.io/badge/sim-Isaac%20Sim%20%7C%20PX4%20SITL-success) ![ros](https://img.shields.io/badge/ROS-2-22314E) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/status-M0--M4%20complete%20(sim)-success) ![tests](https://img.shields.io/badge/tests-12%20passing-success) ![sim](https://img.shields.io/badge/sim-Isaac%20Sim%20%7C%20PX4%20SITL-success) ![ros](https://img.shields.io/badge/ROS-2-22314E) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
+
+## Results (sim, reproducible)
+
+All numbers below are produced by the scripts in `scripts/` and saved to `results/`
+as committed `.md`/`.csv` + plots. Regenerate everything with:
+
+```bash
+pip install -e .
+pytest -q                              # 12 tests
+python scripts/phase1_hover.py         # control
+python scripts/phase2_planning_benchmark.py   # A* vs RRT*
+python scripts/phase3_train.py --resume       # train PPO (or phase3_train_torch.py on a GPU)
+python scripts/phase3_benchmark.py     # PPO vs A*
+python scripts/phase4_mission.py       # full mission + demo GIF
+python scripts/run_all_benchmarks.py   # docs/BENCHMARKS.md + dashboard
+```
+
+![dashboard](results/dashboard.png)
+
+**Phase 1 — control:** takeoff + hover to **2.8 mm** RMSE, 1 m step settles in **1.32 s**.
+
+**Phase 2 — global planning (A\* vs RRT\*, 15 random worlds):** both **100% success, 0 collisions**; flown paths ~13 m vs ~13 m straight-line optimum.
+
+| planner | success | collision | len (m) | plan (ms) |
+|---|---|---|---|---|
+| A* | 1.00 | 0.00 | 13.0 | 67 |
+| RRT* | 1.00 | 0.00 | 13.8 | 49 |
+
+**Phase 3 — learned avoidance (PPO from scratch, 40 worlds):** the reactive policy reaches **97% success** at **0.68 ms/decision** with *no map*, vs A\* at 100% / 52 ms with a full map — reactivity-vs-optimality, quantified.
+
+![learning curve](results/phase3_curve.png)
+
+**Phase 4 — full autonomous mission** (takeoff → inspect 3 points → return-to-home), planned per-leg with A\* and flown closed-loop. Flown length **31.17 m** vs planned **31.15 m** (near-perfect tracking), 0 collisions.
+
+![mission](results/phase4_mission.gif)
+
+> Built incrementally — the git history includes the real bugs I hit and fixed
+> (Euler→RK4 integration drift, controller gain tuning, follower overshoot,
+> a PPO policy-gradient broadcast error, RNG nondeterminism, and self-intersecting
+> path-following). See `docs/BENCHMARKS.md` for the full report.
 
 ## Why this project
 
