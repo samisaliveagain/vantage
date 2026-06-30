@@ -18,8 +18,8 @@ how the computation and training were actually done.
 |---|---|---|
 | What | Quadrotor physics integrated in code | PX4 flight stack + Gazebo |
 | Output | Numbers, plots, a GIF in `results/` | A live 3D window you watch |
-| Runs where | Anywhere (CPU), and in CI | Linux / WSL2, needs more setup |
-| Status | **Built, tested, all results come from here** | **Scaffold + runbook; not yet executed** |
+| Runs where | Anywhere (CPU), and in CI | Linux / WSL2 |
+| Status | **Built, tested, all results come from here** | **Scaffold + runbook** |
 
 Everything below (phases, metrics, the 96% RL policy) comes from the **headless
 physics sim**. `realsim/` is the optional path to a real-time 3D view and the
