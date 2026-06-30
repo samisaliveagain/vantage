@@ -1,0 +1,6 @@
+VANTAGE Phase 3 — GPU-trained (PyTorch) policy evaluation
+device         : cuda (NVIDIA GeForce RTX 4050 Laptop GPU)
+episodes       : 100
+success_rate   : 0.960
+collision_rate : 0.040
+mean_steps     : 59.4

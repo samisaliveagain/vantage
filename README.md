@@ -10,6 +10,8 @@ A sim-first, modular autonomous drone stack. VANTAGE flies a quadrotor through c
 
 ---
 
+> **Full documentation:** see **[DOCS.md](DOCS.md)** — every folder/file explained, all phases, methods & why, the PX4 comparison, and how training was done.
+
 ## Two simulators (read this first)
 
 VANTAGE has two ways to "run":
@@ -48,7 +50,7 @@ python scripts/run_all_benchmarks.py   # docs/BENCHMARKS.md + dashboard
 | A* | 1.00 | 0.00 | 13.0 | 67 |
 | RRT* | 1.00 | 0.00 | 13.8 | 49 |
 
-**Phase 3 — learned avoidance (PPO from scratch, 40 worlds):** the reactive policy reaches **97% success** at **0.68 ms/decision** with *no map*, vs A\* at 100% / 52 ms with a full map — reactivity-vs-optimality, quantified.
+**Phase 3 — learned avoidance (PPO from scratch).** GPU-trained on the **RTX 4050**: **96% success / 4% collision** over 100 randomized courses (`results/phase3_torch_eval.txt`). Benchmarked vs A\* (40 worlds): the reactive policy reaches **97% success** at **0.68 ms/decision** with *no map*, vs A\* at 100% / 52 ms with a full map — reactivity-vs-optimality, quantified.
 
 ![learning curve](results/phase3_curve.png)
 
