@@ -41,7 +41,6 @@ def fly_path(world, path, robot_radius=0.2, dt=0.01, lookahead=0.8,
     t = 0.0
     collided = False
     min_clear = np.inf
-
     while t < max_time:
         pos = quad.position
         closest = int(np.argmin(np.linalg.norm(pts - pos, axis=1)))
@@ -68,7 +67,10 @@ def fly_path(world, path, robot_radius=0.2, dt=0.01, lookahead=0.8,
         min_clear = min(min_clear, c)
         if c < 0:
             collided = True
-        if np.linalg.norm(p - goal) < 0.25 and np.linalg.norm(quad.velocity) < 0.5:
+        # require the drone to have traversed ~the whole path before finishing
+        # (otherwise closed-loop missions that return home would end instantly)
+        if (arc[closest] > 0.9 * total and np.linalg.norm(p - goal) < 0.25
+                and np.linalg.norm(quad.velocity) < 0.5):
             break
 
     flown = np.array(flown)
