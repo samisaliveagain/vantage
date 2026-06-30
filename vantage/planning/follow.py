@@ -41,9 +41,16 @@ def fly_path(world, path, robot_radius=0.2, dt=0.01, lookahead=0.8,
     t = 0.0
     collided = False
     min_clear = np.inf
+    closest = 0            # monotonic progress index (never moves backward)
+    window = 40            # only look a bounded distance ahead on the path
+
     while t < max_time:
         pos = quad.position
-        closest = int(np.argmin(np.linalg.norm(pts - pos, axis=1)))
+        # advance the progress index forward only, within a local window --
+        # robust to self-intersecting paths (e.g. return-to-home loops)
+        hi = min(closest + window, len(pts))
+        local = int(np.argmin(np.linalg.norm(pts[closest:hi] - pos, axis=1)))
+        closest = closest + local
         target_arc = min(arc[closest] + lookahead, total)
         ci = int(np.searchsorted(arc, target_arc))
         ci = min(ci, len(pts) - 1)
