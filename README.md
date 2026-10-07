@@ -65,7 +65,7 @@ python scripts/run_all_benchmarks.py   # docs/BENCHMARKS.md + dashboard
 
 ## Why this project
 
-Drone-autonomy internships (Skydio, Zipline, Anduril, Wing, and smaller startups) repeatedly ask for the same core skills: computer vision, GPS-denied localization & mapping, motion planning, control, and increasingly RL + sim-to-real. VANTAGE is built on the intersection of those skills, so a single codebase demonstrates fit for almost any of these roles — you just emphasize the module that matches the posting.
+LEARNING computer vision, GPS-denied localization & mapping, motion planning, control, and increasingly RL + sim-to-real. VANTAGE is built on the intersection of those skills, so a single codebase demonstrates fit for almost any of these roles — you just emphasize the module that matches the posting.
 
 ## Architecture
 
