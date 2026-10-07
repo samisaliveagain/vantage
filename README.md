@@ -2,188 +2,165 @@
 
 **Versatile Autonomous Navigation & Tracking in GPS-denied Environments**
 
-A sim-first, modular autonomous drone stack. VANTAGE flies a quadrotor through cluttered, GPS-denied environments using only onboard cameras and an IMU — it **sees** (deep-learning perception), **knows where it is** (visual-inertial SLAM), and **decides how to move** (planning + a reinforcement-learning collision-avoidance policy). Everything is proven in high-fidelity simulation first and built to port to real hardware.
+A Python simulation project for quadrotor control, obstacle-aware planning, and reinforcement-learning collision avoidance. The implemented work includes a custom 3D rigid-body simulator, A*/RRT* planners, a cascaded controller, waypoint missions, and PPO trained in a separate simplified 2D environment.
 
-> One project that spans the three things drone companies hire interns for: **perception**, **state estimation / navigation**, and **planning & control**.
+The name describes the longer-term goal. The current implementation uses simulator ground-truth state and generated obstacles; it does **not** demonstrate camera/IMU-based GPS-denied navigation, visual SLAM, or flight on real hardware.
 
-![status](https://img.shields.io/badge/status-M0--M4%20complete%20(sim)-success) ![tests](https://img.shields.io/badge/tests-12%20passing-success) ![sim](https://img.shields.io/badge/sim-Isaac%20Sim%20%7C%20PX4%20SITL-success) ![ros](https://img.shields.io/badge/ROS-2-22314E) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/status-custom%20simulation-blue) ![sim](https://img.shields.io/badge/sim-Python%20%2F%20NumPy-blue) ![learning](https://img.shields.io/badge/learning-PPO-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
----
+## Which simulator was actually used?
 
-> **Full documentation:** see **[DOCS.md](DOCS.md)** — every folder/file explained, all phases, methods & why, the PX4 comparison, and how training was done.
+**The committed results come from custom Python simulations. Isaac Sim, Pegasus, and Isaac Lab were part of the original plan, but are not integrated into the implemented training or benchmark pipeline.**
 
-## Two simulators (read this first)
+| Component | What actually runs | Status / evidence |
+|---|---|---|
+| Control, 3D planning, and missions | Custom NumPy 6-DOF quadrotor dynamics, RK4 integration, spherical obstacles, and a cascaded PD controller | Implemented in [quadrotor.py](vantage/sim/quadrotor.py), [world.py](vantage/sim/world.py), and [follow.py](vantage/planning/follow.py); saved results in `results/` |
+| RL training and evaluation | Custom 2D point-mass environment with direct velocity commands and synthetic lidar-style rays; Gymnasium-compatible API | Implemented in [avoidance_env.py](vantage/rl/avoidance_env.py); used by both PPO trainers |
+| PX4 SITL + Gazebo | Optional installer, launcher, and MAVSDK fixed-waypoint script for Linux/WSL2 | Scaffold only. [DOCS.md](DOCS.md) and [realsim/README.md](realsim/README.md) say these scripts had not been run; no completed Gazebo/PX4 run is evidenced by the committed results |
+| Isaac Sim / Pegasus / Isaac Lab | Original project-plan technologies | No integration or training results in this repository |
 
-VANTAGE has two ways to "run":
+The 2D RL environment does **not** call the 3D quadrotor model. It updates position directly from the chosen velocity. The physics simulation is useful for control and planning experiments, but has no camera rendering, sensor-noise/estimation pipeline, or demonstrated sim-to-real validation.
 
-1. **Headless physics sim (this repo's `vantage/` package)** — integrates real
-   quadrotor dynamics in code and outputs **metrics, plots, and a demo GIF** in
-   `results/`. It does not pop open a 3D window; you see the *recording*. This is
-   what produces all the benchmark numbers below and runs in CI.
-2. **3D simulator (`realsim/`)** — PX4 SITL + Gazebo in WSL2, a real-time 3D
-   window where you watch the drone fly. See **[realsim/00_RUNBOOK.md](realsim/00_RUNBOOK.md)**.
+The [mission GIF](results/phase4_mission.gif) is a Matplotlib animation of a simulated trajectory, not footage from Isaac Sim or Gazebo. The mission uses A* and the controller; it does not execute the learned PPO policy.
 
-## Results (sim, reproducible)
+## How was the model trained? What dataset was used?
 
-All numbers below are produced by the scripts in `scripts/` and saved to `results/`
-as committed `.md`/`.csv` + plots. Regenerate everything with:
+**No external dataset is loaded by the implemented training pipeline.** The learned component is a small PPO avoidance policy trained from scratch through trial and error in procedurally generated obstacle courses. It is not an image model, a pretrained vision-language-action model, or a policy trained from recorded drone flights.
+
+Both [the NumPy trainer](scripts/phase3_train.py) and [the PyTorch trainer](scripts/phase3_train_torch.py) use `AvoidanceEnv(n_obstacles=6)`:
+
+- **World:** a 10 x 10 m 2D area, fixed start at (1, 5), fixed goal at (9, 5), and six randomly placed circular obstacles with radii sampled from 0.4–0.8 m. Obstacle layouts change between episodes.
+- **Input:** 20 numbers — two normalized goal offsets, two normalized velocity components, and 16 synthetic range readings with a 3 m sensing range. These readings are computed from geometry, not captured by a physical lidar or camera.
+- **Output:** two continuous velocity commands, scaled to a maximum of 1.5 m/s per axis.
+- **Experience:** the policy acts, the environment advances by 0.1 s, and the trainer collects observations, actions, rewards, and episode endings. These generated rollouts are the training data; there is no fixed downloaded dataset or human-labeled demonstration set.
+- **Reward:** progress toward the goal, minus time and obstacle-proximity penalties; +20 for reaching the goal, -10 for a collision or leaving the area. Episodes last at most 200 steps.
+- **Learning:** PPO with generalized advantage estimation (GAE), a clipped policy objective, value learning, an entropy term, and Adam. Separate policy and value networks each have two 64-unit tanh hidden layers.
+
+### Training artifacts and provenance
+
+| Run | Implementation | Committed artifacts / evidence |
+|---|---|---|
+| CPU policy | PPO and backpropagation implemented in NumPy | [phase3_policy.npz](results/phase3_policy.npz), [learning-curve CSV](results/phase3_curve.csv), and [curve plot](results/phase3_curve.png). The CSV contains update indices 0–80; its last training success rate is 0.98 |
+| PyTorch policy | Separate PPO implementation using PyTorch; CUDA when available, CPU otherwise | [phase3_policy_torch.pt](results/phase3_policy_torch.pt) and [evaluation report](results/phase3_torch_eval.txt). The report records evaluation on an NVIDIA GeForce RTX 4050 Laptop GPU |
+
+[DOCS.md](DOCS.md) records a GPU training run of 120 updates. The checked-in [Windows launcher](run_gpu_training.bat) specifies 120 updates x 3,000 steps = **360,000 environment transitions**. This is the documented launcher configuration; the complete training log is not committed. The PyTorch script's defaults are different: 200 updates x 4,000 steps. GPU use refers to the neural-network computation; the environment remains a Python/NumPy loop on the CPU.
+
+The PyTorch evaluation uses 100 courses with seeds 5000–5099. The NumPy policy's A* comparison uses 40 courses with seeds 1000–1039. These are separate evaluations of separate checkpoints, not two scores from the same run. They use the same kind of generated environment as training, rather than an external real-world test dataset.
+
+## Implemented architecture
+
+```text
+3D control / planning / mission experiments:
+Generated spherical obstacles -> known occupancy grid -> A* or RRT*
+                                                      |
+                                                      v
+                            Pure-pursuit follower -> cascaded PD controller
+                                                      |
+                                                      v
+                            Custom RK4 quadrotor dynamics -> trajectory / metrics
+                            (controller receives simulator ground-truth state)
+
+Separate 2D learning experiment:
+Random circular obstacles -> synthetic ranges + goal offset + velocity
+                                                      |
+                                                      v
+                            PPO policy -> 2D velocity action -> AvoidanceEnv
+                                                      |
+                                                      v
+                            Rewards / rollouts -> PPO updates -> saved weights
+```
+
+Current dependencies are Python 3.10+, NumPy, SciPy, Matplotlib, Gymnasium, and ImageIO, with optional PyTorch for the second trainer. See [pyproject.toml](pyproject.toml). [CI](.github/workflows/ci.yml) runs pytest; it does not run Isaac Sim, Gazebo, or the full benchmark/training sequence.
+
+## Recorded results
+
+These are the **committed historical results**, under the custom simulators' assumptions. They are not real-flight results or evidence of GPS-denied state estimation.
+
+| Experiment | Recorded result | Source |
+|---|---|---|
+| Phase 1: hover / step tracking | 2.77 mm hover RMSE; 1.32 s step settling | [Control metrics](results/phase1_metrics.md) |
+| Phase 2: A* vs RRT*, 15 generated worlds | Both 100% success, 0 recorded collisions; mean flown lengths 13.02 m / 13.80 m | [Planning metrics](results/phase2_metrics.md) |
+| Phase 3: NumPy PPO vs A*, 40 generated worlds | PPO: 97.5% success, 0% recorded collisions; A*: 100% path-finding success | [Comparison CSV](results/phase3_metrics.csv) |
+| Phase 3: PyTorch PPO, 100 generated courses | 96% success, 4% collision, 59.4 mean steps | [PyTorch evaluation](results/phase3_torch_eval.txt) |
+| Phase 4: A* waypoint mission | 31.17 m flown vs 31.15 m planned; 0 recorded collisions | [Mission report](results/phase4_mission_report.json) |
+
+The Phase 3 comparison gives A* the full map and scores its planned path; PPO is stepped through the environment using local observations. It is not an identical sensing/control comparison. Also, `phase3_benchmark.py` **sums PPO inference time over each episode**. The older “0.68 ms/decision” claim and the per-decision labels in the generated report/dashboard are therefore incorrect; the CSV's 0.675 ms value is mean accumulated policy inference time per episode, versus 52.5627 ms for A* map construction and search. It is not a validated per-decision speed comparison.
+
+Collision results reflect the current simplified checks. In particular, the RL environment checks the point position against obstacle surfaces and bounds; its `robot_radius` setting is not applied to that collision test. These rates do not establish full-airframe clearance or real-world safety.
+
+![NumPy PPO training curve](results/phase3_curve.png)
+
+![Matplotlib animation of the A* mission trajectory](results/phase4_mission.gif)
+
+The Phase 4 mission starts at an already-airborne home waypoint, visits three points, and returns home. The saved mission is not an end-to-end takeoff-to-landing or camera-based inspection demonstration.
+
+## Getting started
 
 ```bash
-pip install -e .
-pytest -q                              # 12 tests
-python scripts/phase1_hover.py         # control
-python scripts/phase2_planning_benchmark.py   # A* vs RRT*
-python scripts/phase3_train.py --resume       # train PPO (or phase3_train_torch.py on a GPU)
-python scripts/phase3_benchmark.py     # PPO vs A*
-python scripts/phase4_mission.py       # full mission + demo GIF
-python scripts/run_all_benchmarks.py   # docs/BENCHMARKS.md + dashboard
+git clone https://github.com/samisaliveagain/vantage.git
+cd vantage
+python -m pip install -e .
+python -m pip install pytest
+python -m pytest -q
+
+# Evaluate the existing NumPy checkpoint and regenerate simulation outputs.
+python scripts/phase1_hover.py
+python scripts/phase2_planning_benchmark.py
+python scripts/phase3_benchmark.py
+python scripts/phase4_mission.py
+python scripts/run_all_benchmarks.py
 ```
 
-![dashboard](results/dashboard.png)
+The last script aggregates existing result files into the report and dashboard. Its legacy Phase 3 timing labels have the limitation described above.
 
-**Phase 1 — control:** takeoff + hover to **2.8 mm** RMSE, 1 m step settles in **1.32 s**.
+To train a new NumPy policy (overwrites the NumPy checkpoint and learning curve):
 
-**Phase 2 — global planning (A\* vs RRT\*, 15 random worlds):** both **100% success, 0 collisions**; flown paths ~13 m vs ~13 m straight-line optimum.
-
-| planner | success | collision | len (m) | plan (ms) |
-|---|---|---|---|---|
-| A* | 1.00 | 0.00 | 13.0 | 67 |
-| RRT* | 1.00 | 0.00 | 13.8 | 49 |
-
-**Phase 3 — learned avoidance (PPO from scratch).** GPU-trained on the **RTX 4050**: **96% success / 4% collision** over 100 randomized courses (`results/phase3_torch_eval.txt`). Benchmarked vs A\* (40 worlds): the reactive policy reaches **97% success** at **0.68 ms/decision** with *no map*, vs A\* at 100% / 52 ms with a full map — reactivity-vs-optimality, quantified.
-
-![learning curve](results/phase3_curve.png)
-
-**Phase 4 — full autonomous mission** (takeoff → inspect 3 points → return-to-home), planned per-leg with A\* and flown closed-loop. Flown length **31.17 m** vs planned **31.15 m** (near-perfect tracking), 0 collisions.
-
-![mission](results/phase4_mission.gif)
-
-
-> (Euler→RK4 integration drift, controller gain tuning, follower overshoot,
-> a PPO policy-gradient broadcast error, RNG nondeterminism, and self-intersecting
-> path-following). See `docs/BENCHMARKS.md` for the full report.
-
-## Why this project
-
-LEARNING computer vision, GPS-denied localization & mapping, motion planning, control, and increasingly RL + sim-to-real. VANTAGE is built on the intersection of those skills, so a single codebase demonstrates fit for almost any of these roles — you just emphasize the module that matches the posting.
-
-## Architecture
-
-```
-Cameras + IMU
-     │
-     ▼
-[M1 Perception]  depth + obstacle detection (PyTorch / TensorRT)
-     │
-     ▼
-[M2 State Estimation]  VIO fused with IMU via PX4 EKF2  (GPS disabled)
-     │
-     ▼
-[M3 Mapping]  3D occupancy grid / ESDF
-     │
-     ▼
-[M4 Planning]  global A*/RRT*  +  local MPC / minimum-snap
-     │
-     ▼
-[M5 Learning]  RL collision-avoidance policy (Isaac Lab)  ⇄ benchmarked vs. M4
-     │
-     ▼
-[Control]  PX4 flight controller  →  Motors
+```bash
+python scripts/phase3_train.py --updates 120 --steps 4000
+# Add --resume to load the existing weights and append to the curve.
 ```
 
-## Modules
+To train and evaluate the separate PyTorch policy:
 
-| # | Module | What it does | Maps to role |
-|---|--------|--------------|--------------|
-| M0 | Simulation & infra | Isaac Sim + Pegasus + PX4 SITL + ROS 2 bridge, logging, CI | Embedded / systems |
-| M1 | Perception | Monocular/stereo depth + YOLO-class obstacle detection + segmentation | Perception / CV |
-| M2 | State estimation | Visual-inertial odometry fused with IMU (EKF2), GPS-denied pose hold | SLAM / sensor fusion |
-| M3 | Mapping | Real-time 3D occupancy / ESDF map | SLAM / navigation |
-| M4 | Planning | Global path planner + local trajectory optimizer (MPC / min-snap) | Controls / planning |
-| M5 | Learning policy | RL collision avoidance in Isaac Lab + domain randomization (sim-to-real) | Autonomy / RL |
-| M6 | Missions & eval | Behavior-tree missions + automated benchmark suite | Generalist autonomy |
-
-## Tech stack
-
-- **Simulator:** NVIDIA Isaac Sim 5.x + [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator) (Gazebo Harmonic as fallback)
-- **Flight stack:** PX4 Autopilot (SITL); ArduPilot kept as autopilot-agnostic option
-- **Middleware:** ROS 2 (Jazzy/Humble), uXRCE-DDS bridge, MAVSDK-Python
-- **Perception:** PyTorch, YOLO-class detector, depth/segmentation model, OpenCV, ONNX/TensorRT
-- **Estimation:** VIO (VINS-Fusion / OpenVINS style) → PX4 EKF2
-- **Mapping:** OctoMap / Voxblox-style occupancy + ESDF
-- **Planning & control:** A*/RRT*, MPC / minimum-snap, geometric control
-- **Learning:** Isaac Lab, PPO/SAC, domain randomization
-- **Tooling:** Docker, GitHub Actions CI, rosbag2, RViz2 / Foxglove, Weights & Biases
-
-## Roadmap (12 weeks, sim-only)
-
-| Weeks | Phase | Artifact |
-|-------|-------|----------|
-| 1–2 | M0 Foundation | Drone arms + holds position via ROS 2; Docker + CI scaffolded |
-| 3–4 | M1 Perception | Live depth + obstacle detection; first demo GIF |
-| 4–6 | M2 Estimation | GPS-denied square flight on VIO+EKF2; trajectory vs. ground-truth plot |
-| 6–7 | M3 Mapping | Real-time 3D map in RViz2 |
-| 7–9 | M4 Planning | Autonomous A→B flight avoiding static obstacles; logged metrics |
-| 9–11 | M5 RL policy | Trained avoidance policy; head-to-head vs. classical planner |
-| 11–12 | M6 Missions & polish | Behavior-tree mission, benchmark report, demo reel |
-
-**Minimum viable version:** M0–M2 + M4. **Standout add:** M5 (RL policy).
-
-## Repository layout (planned)
-
+```bash
+python -m pip install -e ".[gpu]"
+python scripts/phase3_train_torch.py --updates 120 --steps 3000
+python scripts/phase3_eval_torch.py
 ```
+
+PyTorch selects CUDA if available; otherwise it uses the CPU. Training overwrites its checkpoint, and evaluation overwrites its report. To evaluate the committed PyTorch weights without retraining, run only the install and evaluation commands. Environment seeds are explicit, but the PyTorch trainer does not seed its network initialization or action-sampling RNG, so retraining is not guaranteed to reproduce the recorded 96%.
+
+For the separate, unvalidated PX4/Gazebo setup, see [the runbook](realsim/00_RUNBOOK.md). Its MAVSDK example sends fixed waypoints; the VANTAGE planners and PPO policy have not been connected to that script.
+
+## Repository layout
+
+```text
 vantage/
-├── docker/                 # Reproducible dev environment
-├── sim/                    # Isaac Sim / Pegasus worlds + PX4 SITL config
-├── vantage_perception/     # M1 — ROS 2 pkg
-├── vantage_estimation/     # M2 — VIO + EKF2 config
-├── vantage_mapping/        # M3 — occupancy / ESDF
-├── vantage_planning/       # M4 — global + local planners
-├── vantage_rl/             # M5 — Isaac Lab envs + trained policies
-├── vantage_missions/       # M6 — behavior trees + benchmark suite
-├── docs/                   # architecture diagram, write-ups
-└── .github/workflows/      # CI
+  sim/          # Custom 3D dynamics and obstacle world
+  control/      # Cascaded PD controller
+  planning/     # A*, RRT*, and path following
+  rl/           # Separate 2D avoidance environment and NumPy PPO
+  missions/     # A* waypoint mission runner
+  utils/        # Metrics and report helpers
+scripts/        # Experiments, training, evaluation, and plotting
+tests/          # Automated tests
+results/        # Saved checkpoints, metrics, plots, and GIF
+realsim/        # Unvalidated PX4/Gazebo setup and MAVSDK waypoint example
+docs/           # Original project plan and generated benchmark report
+.github/workflows/ # Test CI
 ```
 
-## Getting started (target workflow)
+[DOCS.md](DOCS.md) provides a longer file-by-file explanation and historical development notes. For the distinctions between 2D training, 3D simulation, and planned integrations, use the implementation status above.
 
-```bash
-# 1. Clone
-git clone https://github.com/samisaliveagain/vantage.git && cd vantage
+## Future work — not implemented or validated
 
-# 2. Build the dev container (ROS 2 + PX4 SITL)
-docker compose up --build
+- Run PX4 SITL + Gazebo, connect the planners/policy, and save flight logs and reproducible results.
+- Add camera/IMU simulation, perception, VIO/SLAM, and sensor-derived mapping.
+- Train/evaluate avoidance with quadrotor dynamics, sensor noise, and realistic collision geometry.
+- Evaluate broader domain randomization and sim-to-real transfer.
+- Consider Isaac Sim / Pegasus / Isaac Lab as a future integration.
 
-# 3. Launch sim + autopilot bridge
-ros2 launch vantage_sim sitl.launch.py
-
-# 4. Take off (GPS disabled) and run a mission
-ros2 launch vantage_missions search_inspect_return.launch.py
-```
-
-*(Commands are the planned interface; implemented module-by-module per the roadmap.)*
-
-## Deliverables
-
-- Clean monorepo with per-module READMEs + architecture diagram
-- 60–90s demo reel (takeoff → GPS-denied flight → avoidance → RL-vs-classical)
-- Technical write-up on the sim-to-real RL experiment with benchmark numbers
-- Metrics table: success rate, collision rate, path length, compute cost
-- One-command Dockerized reproduction
-
-## Stretch goals
-
-- Multi-drone / swarm coordination (Aerostack2 behavior trees)
-- Natural-language mission commands via an LLM front-end
-- Port perception + VIO to a real sub-$300 drone / Jetson companion
-- Neural scene reconstruction (3D Gaussian Splatting / NeRF) for mapping
-
-## References
-
-- [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator) — Isaac Sim + PX4
-- [aerial-autonomy-stack](https://github.com/JacopoPan/aerial-autonomy-stack) — ROS 2 / PX4 / YOLO / Jetson
-- PX4 + ROS 2 + EKF2 VIO fusion
-- Isaac Lab — RL environments and sim-to-real
+ROS 2 bridges, YOLO/depth models, TensorRT, EKF2 visual-odometry fusion, ESDF mapping, MPC/minimum-snap, and behavior-tree missions were design goals, not implemented capabilities in the current package.
 
 ## License
 
