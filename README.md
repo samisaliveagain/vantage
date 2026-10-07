@@ -58,7 +58,7 @@ python scripts/run_all_benchmarks.py   # docs/BENCHMARKS.md + dashboard
 
 ![mission](results/phase4_mission.gif)
 
-> Built incrementally — the git history includes the real bugs I hit and fixed
+
 > (Euler→RK4 integration drift, controller gain tuning, follower overshoot,
 > a PPO policy-gradient broadcast error, RNG nondeterminism, and self-intersecting
 > path-following). See `docs/BENCHMARKS.md` for the full report.
